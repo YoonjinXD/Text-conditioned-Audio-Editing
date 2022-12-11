@@ -25,6 +25,7 @@ from pathlib import Path
 from vocoder.modules import Generator
 import yaml
 import pandas as pd
+from tqdm import tqdm
 
 def load_vocoder(ckpt_vocoder: str, eval_mode: bool):
     ckpt_vocoder = Path(ckpt_vocoder)
@@ -78,6 +79,8 @@ class Diffsound():
         missing, unexpected = model.load_state_dict(ckpt["model"], strict=False)
         print('Model missing keys:\n', missing)
         print('Model unexpected keys:\n', unexpected)
+        with open('model_struct.txt', 'w') as f:
+            print('Model', model, file=f)
 
         if ema==True and 'ema' in ckpt:
             print("Evaluate EMA model")
@@ -86,7 +89,7 @@ class Diffsound():
         
         return {'model': model, 'epoch': epoch, 'model_name': model_name, 'parameter': model_parameters}
 
-    def inference_generate_sample_with_condition(self, text, truncation_rate, save_root, batch_size, fast=False):
+    def inference_generate_sample_with_condition(self, text, truncation_rate, save_root, fast=False):
         os.makedirs(save_root, exist_ok=True)
 
         data_i = {}
@@ -114,13 +117,25 @@ class Diffsound():
 
         # save results
         content = model_out['content']
-        content = content.permute(0, 2, 3, 1).to('cpu').numpy().astype(np.uint8)
-        for b in range(content.shape[0]):
+        # content = content.permute(0, 2, 3, 1).to('cpu').numpy().astype(np.uint8)
+        for b in tqdm(range(content.shape[0])):
             cnt = b
             save_base_name = '{}'.format(str(cnt).zfill(6))
-            save_path = os.path.join(save_root_, save_base_name+'.png')
-            im = Image.fromarray(content[b])
-            im.save(save_path)
+            save_path = os.path.join(save_root_, save_base_name)
+            # print('content shape: ', content[b].shape)
+            # print('content dtype: ', content[b].dtype)
+            # print('min', content[b].min())
+            # print('max', content[b].max())
+            im = Image.fromarray(content[b].permute(1, 2, 0).to('cpu').numpy().astype(np.uint8).squeeze(2))
+            im.save(save_path+'.png')
+            
+            spec = content[b] #.transpose(2, 0, 1)
+            spec = spec.squeeze(0).cpu().numpy() 
+            spec = (spec + 1) / 2
+            np.save(save_path + '.npy', spec)
+            if self.vocoder is not None:
+                wave_from_vocoder = self.vocoder(torch.from_numpy(spec).type(torch.FloatTensor).unsqueeze(0).to('cuda')).cpu().squeeze().detach().numpy()
+                soundfile.write(save_path + '.wav', wave_from_vocoder, 22050, 'PCM_24')
 
     def read_tsv(self, val_path):
         train_tsv = pd.read_csv(val_path, sep=',', usecols=[0,1])
@@ -185,25 +200,119 @@ class Diffsound():
                         wave_from_vocoder = self.vocoder(torch.from_numpy(spec).unsqueeze(0).to('cuda')).cpu().squeeze().detach().numpy()
                         soundfile.write(save_path + '.wav', wave_from_vocoder, 22050, 'PCM_24')
                     generate_num += 1
+                    
+    def save_text_emb(self, text, save_root, name=None):
+        os.makedirs(save_root, exist_ok=True)
+        truncation_rate = 0.85
+
+        data_i = {}
+        data_i['text'] = [text]
+        data_i['image'] = None
+        condition = text
+
+        str_cond = str(condition)
+        # save_root_ = os.path.join(save_root, str_cond)
+        os.makedirs(save_root, exist_ok=True)
+
+        # if fast != False:
+        #     add_string = 'r,fast'+str(fast-1)
+        # else:
+        add_string = 'r'
+        with torch.no_grad():
+            text_emb = self.model.extract_text_emb(
+                batch=data_i,
+                filter_ratio=0,
+                replicate=1, # 每个样本重复多少次?
+                content_ratio=1,
+                return_att_weight=False,
+                sample_type="top"+str(truncation_rate)+add_string,
+            ) # B x C x H x W
+        
+        torch.save(text_emb, os.path.join(save_root, text if name is None else name+'.pt'))
+        return text_emb
+        
+    def inference_generate_sample_with_text_emb(self, 
+                                                text_emb, 
+                                                truncation_rate, 
+                                                save_root, 
+                                                inference_name=None, 
+                                                replicate=1, 
+                                                fast=False,
+                                                name=None):
+        os.makedirs(save_root, exist_ok=True)
+
+        # data_i = {}
+        # data_i['text'] = [text]
+        # data_i['image'] = None
+        # condition = text
+
+        if inference_name is not None:
+            str_cond = inference_name # str(condition)
+            save_root_ = os.path.join(save_root, str_cond)
+        else:
+            save_root_ = save_root
+        os.makedirs(save_root_, exist_ok=True)
+
+        if fast != False:
+            add_string = 'r,fast'+str(fast-1)
+        else:
+            add_string = 'r'
+        with torch.no_grad():
+            model_out = self.model.generate_content_with_text_emb(
+                text_emb=text_emb,
+                # batch=data_i,
+                filter_ratio=0,
+                replicate=replicate, # 每个样本重复多少次?
+                content_ratio=1,
+                return_att_weight=False,
+                sample_type="top"+str(truncation_rate)+add_string,
+            ) # B x C x H x W
+
+        # save results
+        content = model_out['content']
+        # content = content.permute(0, 2, 3, 1).to('cpu').numpy().astype(np.uint8)
+        for b in tqdm(range(content.shape[0])):
+            cnt = b
+            save_base_name = f'{"" if name is None else name}_{str(cnt).zfill(2)}'
+            save_path = os.path.join(save_root_, save_base_name)
+            # print('content shape: ', content[b].shape)
+            # print('content dtype: ', content[b].dtype)
+            # print('min', content[b].min())
+            # print('max', content[b].max())
+            im = Image.fromarray(content[b].permute(1, 2, 0).to('cpu').numpy().astype(np.uint8).squeeze(2))
+            im.save(save_path+'.png')
+            
+            spec = content[b] #.transpose(2, 0, 1)
+            spec = spec.squeeze(0).cpu().numpy() 
+            spec = (spec + 1) / 2
+            np.save(save_path + '.npy', spec)
+            if self.vocoder is not None:
+                wave_from_vocoder = self.vocoder(torch.from_numpy(spec).type(torch.FloatTensor).unsqueeze(0).to('cuda')).cpu().squeeze().detach().numpy()
+                soundfile.write(save_path + '.wav', wave_from_vocoder, 22050, 'PCM_24')
+
     
 if __name__ == '__main__':
     # Note that cap_text.yaml includes the config of vagan, we must choose the right path for it.
-    config_path = '/apdcephfs/share_1316500/donchaoyang/code3/Text-to-sound-Synthesis/Diffsound/evaluation/caps_text.yaml'
+    config_path = './caps_text.yaml'
     #config_path = '/apdcephfs/share_1316500/donchaoyang/code3/VQ-Diffusion/OUTPUT/caps_train/2022-02-20T21-49-16/caps_text256.yaml'
-    pretrained_model_path = '/apdcephfs/share_1316500/donchaoyang/code3/DiffusionFast/OUTPUT/caps_train_audioset_pre/2022-05-13T00-35-51/checkpoint/000299e_115199iter.pth'
-    save_root_ = '/apdcephfs/share_1316500/donchaoyang/code3/DiffusionFast/OUTPUT/caps_train_vgg_pre/2022-05-18T01-00-38'
+    pretrained_model_path = '../running_command/exp/caps_train_audioset_pre_test/2022-11-30T13-06-15/checkpoint/000099e_99iter.pth' # '../../diffsound/diffsound_audiocaps.pth'
+    save_root_ = './save'
     random_seconds_shift = datetime.timedelta(seconds=np.random.randint(60))
-    key_words = 'Real_vgg_pre_399'
     now = (datetime.datetime.now() - random_seconds_shift).strftime('%Y-%m-%dT%H-%M-%S')
-    save_root = os.path.join(save_root_, key_words + '_samples_'+now, 'caps_validation')
+    save_root = os.path.join(save_root_, '_samples_'+now) #, 'caps_validation')
     # print(save_root)
     # assert 1==2
     os.makedirs(save_root, exist_ok=True)
-    val_path = 'data_root/audiocaps/new_val.csv'
-    ckpt_vocoder = 'vocoder/logs/vggsound/'
-    Diffsound = Diffsound(config=config_path, path=pretrained_model_path, ckpt_vocoder=ckpt_vocoder)
-    Diffsound.generate_sample(val_path=val_path, truncation_rate=0.85, save_root=save_root, fast=False)
-
+    val_path = '../data_root/audiocaps/new_val.csv'
+    ckpt_vocoder = '../vocoder/logs/vggsound/'
+    diffsound = Diffsound(config=config_path, path=pretrained_model_path, ckpt_vocoder=ckpt_vocoder)
+    print('Diffsound ready to go!')
+    # diffsound.generate_sample(val_path=val_path, truncation_rate=0.85, save_root=save_root, fast=False)
+    diffsound.inference_generate_sample_with_condition("a dog is barking", truncation_rate=0.85, save_root=save_root, fast=False)
+    # _ = diffsound.save_text_emb('Man fighting by himself', '../../Data')
+    # text_emb = torch.load('../../Data/Man fighting by himself.pt')
+    # diffsound.inference_generate_sample_with_text_emb(text_emb=text_emb, truncation_rate=0.85, 
+                                #   replicate=3, save_root=save_root, inference_name='debug', fast=False)
 
 
 
