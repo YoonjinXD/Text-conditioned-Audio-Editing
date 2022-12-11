@@ -21,6 +21,7 @@ from sound_synthesis.utils.misc import get_model_parameters_info
 from sound_synthesis.engine.lr_scheduler import ReduceLROnPlateauWithWarmup, CosineAnnealingLRWithWarmup
 from sound_synthesis.engine.ema import EMA
 from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR
+from tqdm import tqdm
 import numpy as np
 try:
     from torch.cuda.amp import autocast, GradScaler
@@ -97,7 +98,7 @@ class Solver(object):
 
         self.logger.log_info(str(get_model_parameters_info(self.model)))
         #self.model.cuda() 
-        self.model.to(self.args.local_rank)
+        self.model.to(self.args.gpu)
         self.device = self.model.device
         # print('self.device ',self.device)
         # assert 1==2
@@ -217,7 +218,7 @@ class Solver(object):
                 # print('k,v ', k, v)
                 save_dir = os.path.join(self.image_dir, phase, k)
                 os.makedirs(save_dir, exist_ok=True)
-                save_path = os.path.join(save_dir, 'e{:010d}_itr{:010d}_rank{}{}'.format(self.last_epoch, self.last_iter%self.dataloader['train_iterations'], get_rank(), suffix))
+                save_path = os.path.join(save_dir, 'e{:03d}_rank{}{}'.format(self.last_epoch, get_rank(), suffix))
                 if torch.is_tensor(v) and v.dim() == 4 and v.shape[1] in [1, 3]: # image
                     im = v
                     # print('im0 ',im.shape)
@@ -315,9 +316,11 @@ class Solver(object):
                         self.scaler.step(op_sc['optimizer']['module'])
                         self.scaler.update()
                     else:
+                        # output['loss'].requires_grad = True
                         output['loss'].backward() # backward
                         if self.clip_grad_norm is not None:
                             self.clip_grad_norm(self.model.parameters())
+                        # output['loss'].requires_grad = False
                         op_sc['optimizer']['module'].step() # update
                     
                 if 'scheduler' in op_sc:
@@ -378,10 +381,10 @@ class Solver(object):
                     torch.save(state_dict, save_path)
                     self.logger.log_info('saved in {}'.format(save_path))    
                 
-                # save with the last name
-                save_path = os.path.join(self.ckpt_dir, 'last.pth')
-                torch.save(state_dict, save_path)  
-                self.logger.log_info('saved in {}'.format(save_path))    
+                    # save with the last name
+                    save_path = os.path.join(self.ckpt_dir, 'last.pth')
+                    torch.save(state_dict, save_path)  
+                    self.logger.log_info('saved in {}'.format(save_path))    
         
     def resume(self, 
                path=None, # The path of last.pth
@@ -393,7 +396,9 @@ class Solver(object):
         #print('path ', path)
         if os.path.exists(path):
             #print('exists!!!')
-            state_dict = torch.load(path, map_location='cuda:{}'.format(self.args.local_rank))
+            print("solver: load state_dict", path, flush=True)
+            # state_dict = torch.load(path, map_location='cuda:{}'.format(self.args.local_rank))
+            state_dict = torch.load(path, map_location='cpu')
             # print('state_dict ',state_dict)
             # assert 1==2
             if load_others:
@@ -403,6 +408,7 @@ class Solver(object):
             if isinstance(self.model, torch.nn.parallel.DistributedDataParallel):
                 try:
                     self.model.module.load_state_dict(state_dict['model'])
+                    self.model = self.model.cuda()
                     # print('module update ',self.args.global_rank)
                     # assert 1==2
                 except:
@@ -504,7 +510,8 @@ class Solver(object):
             # self.sample(batch, phase='train', step_type='iteration')
             # assert 1==2
             # sample
-            if self.sample_iterations > 0 and (self.last_iter + 1) % self.sample_iterations == 0:
+            # if self.sample_iterations > 0 and (self.last_iter + 1) % self.sample_iterations == 0:
+            if self.last_epoch%self.save_epochs == 0 and self.last_epoch != 0:
                 # print("save model here")
                 # self.save(force=True)
                 # print("save model done")
@@ -589,7 +596,7 @@ class Solver(object):
         self.start_train_time = time.time()
         self.logger.log_info('{}: global rank {}: start training...'.format(self.args.name, self.args.global_rank), check_primary=False)
         
-        for epoch in range(start_epoch, self.max_epochs):
+        for epoch in tqdm(range(start_epoch, self.max_epochs)):
             self.train_epoch()
             self.save(force=True)
             self.validate_epoch()

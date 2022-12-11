@@ -18,6 +18,8 @@ def load_img(filepath):
 class CropImage(Crop):
     def __init__(self, *crop_args):
         super().__init__(*crop_args)
+        
+### 여기 세개 클래스 차이가 뭔지? -> load하는 경로랑 데이터 형식이 조금씩 다른 듯
 
 class AudiosetDataset(Dataset):
     def __init__(self, data_root, phase = 'train', mel_num=80,
@@ -37,7 +39,7 @@ class AudiosetDataset(Dataset):
         self.num = len(self.name_list)
 
         # load all caption file to dict in memory
-        self.caption_dict = torch.load(text_path)
+        self.caption_dict = torch.load(text_path) # caption dict 에 들어가는 text_path
         
         # for index in tqdm(range(self.num)):
         #     name = self.name_list[index] # 
@@ -65,7 +67,7 @@ class AudiosetDataset(Dataset):
         # image = load_img(image_path)
         #image = np.array(image).astype(np.uint8)
         # image = self.transform(image = image)['image']
-        image = image[None,:,:]
+        image = image[None,:,:] # unsqueeze(0)
         caption_list = self.caption_dict[name]
         caption = random.choice(caption_list).replace('\n', '').lower()
         # print('image ',image.shape)
@@ -252,7 +254,7 @@ class AudiosetDatasetNPZ(Dataset):
             item = self.transforms(item)
         image = 2 * item['input'] - 1 # why --> it also expects inputs in [-1, 1] but specs are in [0, 1]
         # image = load_img(image_path)
-        #image = np.array(image).astype(np.uint8)
+        # image = np.array(image).astype(np.uint8)
         # image = self.transform(image = image)['image']
         image = image[None,:,:]
         caption_list = list(data['caption'])
