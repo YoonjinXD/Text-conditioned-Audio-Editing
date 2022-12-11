@@ -1,10 +1,6 @@
+# Byte-compiled / optimized / DLL files
 __pycache__/
-*/__pycache__/
-*/*/__pycache__/
-*/*/*/__pycache__/
-*/*/*/*/__pycache__/
-*/*/*/*/*/__pycach__/
-*.pyc
+*.py[cod]
 *.wav
 *.npy
 *.txt
