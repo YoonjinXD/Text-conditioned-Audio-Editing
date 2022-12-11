@@ -1,4 +1,3 @@
-# change from o4
 model:
   target: sound_synthesis.modeling.models.dalle_spec.DALLE
   params:

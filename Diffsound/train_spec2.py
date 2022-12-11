@@ -25,26 +25,26 @@ DIST_URL = 'tcp://%s:%s' % (MASTER_ADDR, MASTER_PORT)
 NUM_NODE = os.environ['HOST_NUM'] if 'HOST_NUM' in os.environ else 1
 def get_args():
     parser = argparse.ArgumentParser(description='PyTorch Training script')
-    parser.add_argument('--config_file', type=str, default='configs/vqvae_celeba_attribute_cond.yaml', 
+    parser.add_argument('--config_file', type=str, default='../configs/caps_pre_audioset.yaml', 
                         help='path of config file')
     parser.add_argument('--name', type=str, default='', 
                         help='the name of this experiment, if not provided, set to'
                              'the name of config file') 
-    parser.add_argument('--output', type=str, default='/apdcephfs/share_1316500/donchaoyang/code3/DiffusionFast/OUTPUT', 
+    parser.add_argument('--output', type=str, default='exp', 
                         help='directory to save the results')    
     parser.add_argument('--log_frequency', type=int, default=100, 
                         help='print frequency (default: 100)')
-    parser.add_argument('--load_path', type=str, default=None,
+    parser.add_argument('--load_path', type=str, default='../../diffsound/audioset_pretrain_diffsound.pth',
                         help='path to model that need to be loaded, '
                              'used for loading pretrained model') # 什么时候用了这个?
     parser.add_argument('--resume_name', type=str, default=None,
                         help='resume one experiment with the given name')
     parser.add_argument('--auto_resume', action='store_true',
                         help='automatically resume the training')
-
+    
     # args for ddp
     parser.add_argument('--num_node', type=int, default=NUM_NODE,
-                        help='number of nodes for distributed training') 
+                        help='number of nodes for distributed training') # n_machine
     parser.add_argument('--ngpus_per_node', type=int, default=8,
                         help='number of gpu on one node')
     parser.add_argument('--node_rank', type=int, default=NODE_RANK,
@@ -103,7 +103,7 @@ def get_args():
             args.gpu = 0
     random_seconds_shift = datetime.timedelta(seconds=np.random.randint(60))
     now = (datetime.datetime.now() - random_seconds_shift).strftime('%Y-%m-%dT%H-%M-%S')
-    args.save_dir = os.path.join(args.output, args.name, now)
+    args.save_dir = os.path.join(args.output, args.name) #, now)
     # print('args.save_dir ',args.save_dir)
     # assert 1==2
     return args
@@ -142,12 +142,19 @@ def main_worker(local_rank, args):
     print(args)
     # load config
     config = load_yaml_config(args.config_file)
+    
     config = merge_opts_to_config(config, args.opts) # 合并命令行输入到config文件中
     if args.debug:
         config = modify_config_for_debug(config)
     # get logger
     logger = Logger(args)
     logger.save_config(config)
+    
+        # rewrite data path
+    data_path = os.path.join(config['dataloader']['data_root'], (args.name).replace(' ', '_'))
+    config['dataloader']['data_root'] = data_path
+    config['dataloader']['train_datasets'][0]['data_root'] = data_path
+    config['dataloader']['validation_datasets'][0]['data_root'] = data_path
 
     # get model 
     model = build_model(config, args)

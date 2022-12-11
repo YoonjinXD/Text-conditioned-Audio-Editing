@@ -7,7 +7,7 @@ model:
     content_codec_config: 
       target: sound_synthesis.modeling.codecs.spec_codec.vqgan.VQModel
       params:
-        ckpt_path: '/apdcephfs/share_1316500/donchaoyang/code3/SpecVQGAN/logs/2022-04-24T23-17-27_audioset_codebook256/checkpoints/last.ckpt' # e.g. '2021-06-06T19-42-53_vas_specs_vqgan' or '2021-05-19T22-16-54_vggsound_specs_vqgan'
+        ckpt_path: '../../diffsound/last.ckpt' # e.g. '2021-06-06T19-42-53_vas_specs_vqgan' or '2021-05-19T22-16-54_vggsound_specs_vqgan'
         embed_dim: 256
         n_embed: 256 # codebook 的大小，若使用vggsound训练的codebook,则应该为1024
         ddconfig:
@@ -66,6 +66,7 @@ model:
             block_activate: GELU2
             timestep_type: 'adalayernorm'    # adainsnorm or adalayernorm and abs
             mlp_hidden_times: 4
+            trainable: False 
         condition_emb_config:
           target: sound_synthesis.modeling.embeddings.clip_text_embedding.CLIPTextEmbedding
           params:
@@ -76,21 +77,22 @@ model:
             keep_seq_len_dim: False
             additional_last_embedding: False
             embed_dim: 512
+            trainable: True
         content_emb_config:
           target: sound_synthesis.modeling.embeddings.dalle_mask_image_embedding.DalleMaskImageEmbedding
           params:
             num_embed: 256    #should be quantize_number
             spatial_size: !!python/tuple [5, 53]
             embed_dim: 1024 # the dim of postion embedding
-            trainable: True
+            trainable: False
             pos_emb_type: embedding
 
 solver:
   base_lr: 2.0e-6 # I reduce it from 3.0e-6 to 2.0e-6
   adjust_lr: none # not adjust lr according to total batch_size
-  max_epochs: 400
+  max_epochs: 200
   save_epochs: 100
-  validation_epochs: 400
+  validation_epochs: 50
   sample_iterations: epoch  # epoch #30000      # how many iterations to perform sampling once ?
   print_specific_things: True
   load_path: /apdcephfs/share_1316500/donchaoyang/code3/DiffusionFast/OUTPUT/pretrain/000099e_132799iter.pth
@@ -132,17 +134,18 @@ solver:
 
 dataloader:
   # data_root: data
-  data_root: /apdcephfs/share_1316500/donchaoyang/code3/VQ-Diffusion/data_root/audiocaps
-  split_json: /apdcephfs/share_1316500/donchaoyang/data/audiocaps/split_8gpu_json
+  # 얘네 둘 뭔지 물어봐야함. 특히 split_json
+  data_root: /home/yoonjin/ongoing/Text-to-sound-Synthesis/Data
+  split_json: /home/yoonjin/ongoing/Text-to-sound-Synthesis/Data
   buffer_size: 4
   batch_nums: 96
   chunk_num_per_gpu: 4
-  batch_size: 16 #20
+  batch_size: 1 #20
   num_workers: 12
   train_datasets: # a list of configures, so we can combine several schedulers
     - target: sound_synthesis.data.caps_dataset.CapsDataset
       params:
-        data_root: /apdcephfs/share_1316500/donchaoyang/code3/VQ-Diffusion/data_root/audiocaps
+        data_root: /home/yoonjin/ongoing/Text-to-sound-Synthesis/Data
         phase: train
         mel_num: 80
         spec_len: 860
@@ -156,7 +159,7 @@ dataloader:
   validation_datasets:
     - target: sound_synthesis.data.caps_dataset.CapsDataset
       params:
-        data_root: /apdcephfs/share_1316500/donchaoyang/code3/VQ-Diffusion/data_root/audiocaps
+        data_root: /home/yoonjin/ongoing/Text-to-sound-Synthesis/Data
         phase: test
         mel_num: 80
         spec_len: 860
