@@ -306,10 +306,15 @@ class Text2ImageTransformer(nn.Module):
         content_emb_config=None,
         mlp_type='fc',
         checkpoint=False,
+        trainable=True
     ):
         super().__init__()
 
         self.use_checkpoint = checkpoint
+        self.trainable = trainable
+        if not content_emb_config['params']['trainable'] == self.trainable:
+            print(f"! Warning: Text2ImageTransformer set as trainable {self.trainable}, \
+                  but DalleMaskImageEmbedding set as trainalbe {content_emb_config['params']['trainable']}.")
         # print(content_emb_config)
         # assert 1==2
         self.content_emb = instantiate_from_config(content_emb_config) # when init the model, the number of q has add 1
@@ -351,6 +356,20 @@ class Text2ImageTransformer(nn.Module):
         self.content_seq_len = content_seq_len # 1024 for image, 265 for spec
 
         self.apply(self._init_weights)
+        self._set_trainable()
+    
+    def _set_trainable(self):
+        if not self.trainable:
+            for p in self.blocks.parameters():
+                p.requires_grad = False
+            for pn, p in self.to_logits.named_parameters():
+                # exclude nn.LayerNorm in self.to_logits as it causes error
+                # RuntimeError: element 0 of tensors does not require grad and does not have a grad_fn
+                if '1' in str(pn):
+                    print(pn, 'freezed')
+                    p.requires_grad = False
+        
+        self.content_emb._set_trainable()
 
     def _init_weights(self, module):
         if isinstance(module, (nn.Linear, nn.Embedding)):

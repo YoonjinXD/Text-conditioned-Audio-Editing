@@ -13,6 +13,7 @@ class CLIPTextEmbedding(BaseEmbedding):
                  keep_seq_len_dim=False,
                  additional_last_embedding=False,
                  embed_dim=1024,
+                 trainable=False,
         ):
         super().__init__()
         self.num_embed = num_embed
@@ -36,7 +37,7 @@ class CLIPTextEmbedding(BaseEmbedding):
         else:
             self.embed_dim = self.text_projection.shape[1]    # original output, 512 dim
 
-        self.trainable = False
+        self.trainable = trainable
         self._set_trainable()
 
     @property

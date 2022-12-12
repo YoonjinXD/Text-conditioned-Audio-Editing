@@ -90,7 +90,7 @@ model:
 solver:
   base_lr: 3.0e-6 # I reduce it from 3.0e-6 to 2.0e-6
   adjust_lr: none # not adjust lr according to total batch_size
-  max_epochs: 800
+  max_epochs: 400
   save_epochs: 100
   validation_epochs: 50
   sample_iterations: epoch  # epoch #30000      # how many iterations to perform sampling once ?

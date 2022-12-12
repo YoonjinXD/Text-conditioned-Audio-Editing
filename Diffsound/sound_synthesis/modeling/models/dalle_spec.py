@@ -32,6 +32,12 @@ class DALLE(nn.Module):
         diffusion_config
     ):
         super().__init__()
+        ##################################################################
+        # content_codec = sound_synthesis.modeling.codecs.spec_codec.vqgan.VQModel
+        # condition_codec = sound_synthesis.modeling.codecs.text_codec.tokenize.Tokenize
+        # transformer = sound_synthesis.modeling.transformers.diffusion_transformer.DiffusionTransformer
+        # first_stage_permuter = specvqgan.modules.transformer.permuter.ColumnMajor
+        ##################################################################
         self.content_info = content_info
         self.condition_info = condition_info
         #self.content_codec = instantiate_from_config(content_codec_config)
@@ -128,8 +134,8 @@ class DALLE(nn.Module):
     @autocast(enabled=False)
     @torch.no_grad()
     def prepare_input(self, batch):
-        input = self.prepare_condition(batch)
-        input.update(self.prepare_content(batch))
+        input = self.prepare_condition(batch) # Text Tokenize
+        input.update(self.prepare_content(batch)) # Image
         return input
 
     def p_sample_with_truncation(self, func, sample_type):
@@ -349,3 +355,106 @@ class DALLE(nn.Module):
         # print('output ',output)
         # assert 1==2
         return output
+    
+    @torch.no_grad()
+    def extract_text_emb(
+        self,
+        *,
+        batch,
+        condition=None,
+        filter_ratio = 0.5,
+        temperature = 1.0,
+        content_ratio = 0.0,
+        replicate=1,
+        return_att_weight=False,
+        sample_type="top0.85r"):
+        self.eval()
+        if condition is None:
+            condition = self.prepare_condition(batch=batch)
+        else:
+            condition = self.prepare_condition(batch=None, condition=condition)
+        
+        if replicate != 1: # 重复多少次?
+            for k in condition.keys():
+                if condition[k] is not None:
+                    condition[k] = torch.cat([condition[k] for _ in range(replicate)], dim=0)
+        # print(condition)
+        # assert 1==2
+        content_token = None
+
+        if len(sample_type.split(',')) > 1: # using r,fast
+            if sample_type.split(',')[1][:1]=='q':
+                self.transformer.p_sample = self.p_sample_with_truncation(self.transformer.p_sample, sample_type.split(',')[1])
+        if sample_type.split(',')[0][:3] == "top" and self.truncation_forward == False:
+            self.transformer.predict_start = self.predict_start_with_truncation(self.transformer.predict_start, sample_type.split(',')[0])
+            self.truncation_forward = True
+
+        text_emb = self.transformer.extract_text_emb(condition_token=condition['condition_token'])
+                                        # condition_mask=condition.get('condition_mask', None),
+                                        # condition_embed=condition.get('condition_embed_token', None),
+                                        # content_token=content_token,
+                                        # filter_ratio=filter_ratio)
+
+        return text_emb
+    
+    @torch.no_grad()
+    def generate_content_with_text_emb(
+        self,
+        *,
+        text_emb,
+        # batch,
+        # condition=None,
+        filter_ratio = 0.5,
+        temperature = 1.0,
+        content_ratio = 0.0,
+        replicate=1,
+        return_att_weight=False,
+        sample_type="top0.85r"):
+        self.eval()
+        # if condition is None:
+        #     condition = self.prepare_condition(batch=batch)
+        # else:
+        #     condition = self.prepare_condition(batch=None, condition=condition)
+        
+        if replicate != 1:
+            assert text_emb.shape[0] == 1
+            text_emb = torch.cat([text_emb for _ in range(replicate)], dim=0)
+        # if replicate != 1: # 重复多少次?
+        #     for k in condition.keys():
+        #         if condition[k] is not None:
+        #             condition[k] = torch.cat([condition[k] for _ in range(replicate)], dim=0)
+        # print(condition)
+        # assert 1==2
+        content_token = None
+
+        if len(sample_type.split(',')) > 1: # using r,fast
+            if sample_type.split(',')[1][:1]=='q':
+                self.transformer.p_sample = self.p_sample_with_truncation(self.transformer.p_sample, sample_type.split(',')[1])
+        if sample_type.split(',')[0][:3] == "top" and self.truncation_forward == False:
+            self.transformer.predict_start = self.predict_start_with_truncation(self.transformer.predict_start, sample_type.split(',')[0])
+            self.truncation_forward = True
+
+        # ignore fast
+        trans_out = self.transformer.sample_with_text_emb(text_emb=text_emb,
+                                        # condition_token=condition['condition_token'],
+                                        # condition_mask=condition.get('condition_mask', None),
+                                        # condition_embed=condition.get('condition_embed_token', None),
+                                        content_token=content_token,
+                                        filter_ratio=filter_ratio,
+                                        # temperature=temperature,
+                                        # return_att_weight=return_att_weight,
+                                        return_logits=False,
+                                        # print_log=False,
+                                        sample_type=sample_type)
+        zshape = (trans_out['content_token'].shape[0], 256, 5, 53)
+        # print(trans_out['content_token'].shape)
+        # assert 1==2
+        content = self.decode_to_img(trans_out['content_token'], zshape)
+        #content = self.content_codec.decode(trans_out['content_token'])  #(8,1024)->(8,3,256,256)
+        self.train()
+        out = {
+            'content': content
+        }
+        
+
+        return out
