@@ -27,6 +27,10 @@ import yaml
 import pandas as pd
 from tqdm import tqdm
 
+import librosa
+import librosa.display
+import matplotlib.pyplot as plt
+
 def load_vocoder(ckpt_vocoder: str, eval_mode: bool):
     ckpt_vocoder = Path(ckpt_vocoder)
     # print('ckpt_vocoder ',ckpt_vocoder)
@@ -47,9 +51,10 @@ class Diffsound():
         self.epoch = self.info['epoch']
         self.model_name = self.info['model_name']
         self.model = self.model.cuda()
-        self.model.eval()
-        for param in self.model.parameters(): 
-            param.requires_grad=False
+        self.model.train()
+        # self.model.eval()
+        # for param in self.model.parameters(): 
+        #     param.requires_grad=False
         if ckpt_vocoder:
             self.vocoder = load_vocoder(ckpt_vocoder, eval_mode=True)['model'].to('cuda')
         else:
@@ -272,23 +277,101 @@ class Diffsound():
         content = model_out['content']
         # content = content.permute(0, 2, 3, 1).to('cpu').numpy().astype(np.uint8)
         for b in tqdm(range(content.shape[0])):
-            cnt = b
-            save_base_name = f'{"" if name is None else name}_{str(cnt).zfill(2)}'
+            count = b
+            save_base_name = f'{"" if name is None else name}{"_" + str(count).zfill(2) if replicate != 1 else ""}'
             save_path = os.path.join(save_root_, save_base_name)
-            # print('content shape: ', content[b].shape)
-            # print('content dtype: ', content[b].dtype)
-            # print('min', content[b].min())
-            # print('max', content[b].max())
-            im = Image.fromarray(content[b].permute(1, 2, 0).to('cpu').numpy().astype(np.uint8).squeeze(2))
-            im.save(save_path+'.png')
             
+            # Save audio
             spec = content[b] #.transpose(2, 0, 1)
             spec = spec.squeeze(0).cpu().numpy() 
             spec = (spec + 1) / 2
-            np.save(save_path + '.npy', spec)
             if self.vocoder is not None:
                 wave_from_vocoder = self.vocoder(torch.from_numpy(spec).type(torch.FloatTensor).unsqueeze(0).to('cuda')).cpu().squeeze().detach().numpy()
-                soundfile.write(save_path + '.wav', wave_from_vocoder, 22050, 'PCM_24')
+                soundfile.write(save_path+'.wav', wave_from_vocoder, 22050, 'PCM_24')
+            
+            # Save spec
+            def get_audio(audio_path, start_time=0, duration_sec=10):
+                wav, sr = librosa.load(audio_path, sr=22050)
+                
+                length = sr*duration_sec
+                y = np.zeros(length)
+                if wav.shape[0] < length:
+                    y[:len(wav)] = wav
+                else:
+                    y = wav[start_time:start_time+length]
+                
+                return y
+
+            def get_spec_from_audio(audio_path, start_time=0, duration_sec=10):
+                y = get_audio(audio_path, start_time, duration_sec)
+                
+                window_size = 1024
+                window = np.hanning(window_size)
+                stft  = librosa.core.spectrum.stft(y, n_fft=window_size, hop_length=512, window=window)
+                out = 2 * np.abs(stft) / np.sum(window)
+                
+                return out
+            
+            spec = get_spec_from_audio(save_path+'.wav')
+            fig = plt.Figure()
+            ax = fig.add_subplot(111)
+            _ = librosa.display.specshow(librosa.amplitude_to_db(spec, ref=np.max), ax=ax, y_axis='log', x_axis='time')
+            fig.savefig(save_path+'.png')
+            
+        # 리턴값 임의로 추가
+        return save_path + '.wav'
+                
+    def reconstruct_sample(self, x, save_root, save_name):
+        os.makedirs(save_root, exist_ok=True)
+
+        with torch.no_grad():
+            model_out = self.model.reconstruct(x)
+
+        # save results
+        content = model_out['content']
+        # content = content.permute(0, 2, 3, 1).to('cpu').numpy().astype(np.uint8)
+        
+        for b in tqdm(range(content.shape[0])):
+            audio_path = os.path.join(save_root, f'{save_name}_recon.wav')
+            spec_path = os.path.join(save_root, f'{save_name}_recon.png')
+            
+            # Save audio
+            spec = content[b] #.transpose(2, 0, 1)
+            spec = spec.squeeze(0).cpu().numpy() 
+            spec = (spec + 1) / 2
+            np.save(os.path.join(save_root, f'{save_name}_recon.npy'), spec)
+            if self.vocoder is not None:
+                wave_from_vocoder = self.vocoder(torch.from_numpy(spec).type(torch.FloatTensor).unsqueeze(0).to('cuda')).cpu().squeeze().detach().numpy()
+                soundfile.write(audio_path, wave_from_vocoder, 22050, 'PCM_24')
+            
+            # Save spec
+            def get_audio(audio_path, start_time=0, duration_sec=10):
+                wav, sr = librosa.load(audio_path, sr=22050)
+                
+                length = sr*duration_sec
+                y = np.zeros(length)
+                if wav.shape[0] < length:
+                    y[:len(wav)] = wav
+                else:
+                    y = wav[start_time:start_time+length]
+                
+                return y
+
+            def get_spec_from_audio(audio_path, start_time=0, duration_sec=10):
+                y = get_audio(audio_path, start_time, duration_sec)
+                
+                window_size = 1024
+                window = np.hanning(window_size)
+                stft  = librosa.core.spectrum.stft(y, n_fft=window_size, hop_length=512, window=window)
+                out = 2 * np.abs(stft) / np.sum(window)
+                
+                return out
+            
+            spec = get_spec_from_audio(audio_path)
+            fig = plt.Figure()
+            ax = fig.add_subplot(111)
+            _ = librosa.display.specshow(librosa.amplitude_to_db(spec, ref=np.max), ax=ax, y_axis='log', x_axis='time')
+            fig.savefig(spec_path)
 
     
 if __name__ == '__main__':
