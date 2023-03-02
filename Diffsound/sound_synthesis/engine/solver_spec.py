@@ -317,6 +317,7 @@ class Solver(object):
                         self.scaler.update()
                     else:
                         # output['loss'].requires_grad = True
+                        print('Loss: ', output['loss'])
                         output['loss'].backward() # backward
                         if self.clip_grad_norm is not None:
                             self.clip_grad_norm(self.model.parameters())

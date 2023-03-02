@@ -4,7 +4,8 @@ import torch
 import json
 
 def load_yaml_config(path):
-    with open(path) as f:
+    print(path)
+    with open(path, encoding='utf-8') as f:
         config = yaml.full_load(f)
     return config
 

@@ -5,6 +5,7 @@ import pytorch_lightning as pl
 
 import sys
 sys.path.insert(0, '.')  # nopep8
+sys.path.append('/home/yoonjin/ongoing/Text-to-sound-Synthesis/Codebook') 
 from train import instantiate_from_config
 
 from specvqgan.modules.diffusionmodules.model import Encoder, Decoder, Encoder1d, Decoder1d
@@ -130,6 +131,11 @@ class VQModel(pl.LightningModule):
         self.log_dict(log_dict_ae)
         self.log_dict(log_dict_disc)
         return self.log_dict
+    
+    def reconstruct(self, batch):
+        x = self.get_input(batch, self.image_key)
+        xrec, qloss = self(x)
+        return x
 
     def configure_optimizers(self):
         lr = self.learning_rate
@@ -337,7 +343,7 @@ if __name__ == '__main__':
     from train import instantiate_from_config
 
     image_key = 'image'
-    cfg_audio = OmegaConf.load('./configs/vggsound_codebook.yaml')
+    cfg_audio = OmegaConf.load('./vggsound_codebook.yaml')
     model = VQModel(cfg_audio.model.params.ddconfig,
                     cfg_audio.model.params.lossconfig,
                     cfg_audio.model.params.n_embed,
@@ -345,8 +351,8 @@ if __name__ == '__main__':
                     image_key='image')
     batch = {
         'image': torch.rand((4, 80, 848)),
-        'file_path_': ['data/vggsound/mel123.npy', 'data/vggsound/mel123.npy', 'data/vggsound/mel123.npy'],
-        'class': [1, 1, 1],
+        'file_path_': ['../../Data/caps_full/test/2ymiXjImwGs_mel.npy'],
+        'class': [1],
     }
     xrec, qloss = model(model.get_input(batch, image_key))
     print(xrec.shape, qloss.shape)

@@ -11,6 +11,8 @@ import librosa
 import numpy as np
 import torchvision
 
+import matplotlib.pyplot as plt
+import librosa.display
 
 class MelSpectrogram(object):
     def __init__(self, sr, nfft, fmin, fmax, nmels, hoplen, spec_power, inverse=False):
@@ -164,7 +166,7 @@ def inv_transforms(x, folder_name='melspec_10s_22050hz'):
 
 
 def get_spectrogram(audio_path, save_dir, length, folder_name='melspec_10s_22050hz', save_results=True):
-    wav, _ = librosa.load(audio_path, sr=None)
+    wav, _ = librosa.load(audio_path, sr=22050)
     # this cannot be a transform without creating a huge overhead with inserting audio_name in each
     y = np.zeros(length)
     if wav.shape[0] < length:
@@ -172,23 +174,35 @@ def get_spectrogram(audio_path, save_dir, length, folder_name='melspec_10s_22050
     else:
         y = wav[:length]
 
-    if folder_name == 'melspec_10s_22050hz':
-        mel_spec = TRANSFORMS(y)
-    else:
-        raise NotImplementedError
+    # 대체 뭘 만들려 했던걸까
+    # if folder_name == 'melspec_10s_22050hz':
+    #     mel_spec = TRANSFORMS(y)
+    # else:
+    #     raise NotImplementedError
     print(length)
+    
+    mel_spec = TRANSFORMS(y)
+    
     if save_results:
         os.makedirs(save_dir, exist_ok=True)
         audio_name = os.path.basename(audio_path).split('.')[0]
-        #np.save(P.join(save_dir, audio_name + '_mel.npy'), mel_spec)
+        np.save(P.join(save_dir, audio_name + '_mel.npy'), mel_spec)
         np.save(P.join(save_dir, audio_name + '_audio.npy'), y) #先不保存audio文件
+        
+        # Save mel spec image
+        fig = plt.Figure()
+        ax = fig.add_subplot(111)
+        p = librosa.display.specshow(librosa.amplitude_to_db(mel_spec), ax=ax)
+        fig.savefig('test.png')
+        
+        
     else:
         return y, mel_spec
 
 
 if __name__ == '__main__':
     paser = argparse.ArgumentParser()
-    paser.add_argument("-i", "--input_dir", default="/apdcephfs/share_1316500/donchaoyang/data/audioset/features/audio_10s_22050hz")
+    paser.add_argument("-i", "--input_dir", default="/media/daftpunk2/home/jakeoneijk/221008_audio_caps/audiocaps_audio_dataset")
     paser.add_argument("-o", "--output_dir", default="/apdcephfs/share_916081/jerrynchen/ydc_data/train/melspec_10s_22050hz")
     paser.add_argument("-l", "--length", default=220500)
     paser.add_argument("-n", '--num_worker', type=int, default=32)
@@ -205,16 +219,15 @@ if __name__ == '__main__':
         else:
             cnt = str(i)
         input_dir = '/apdcephfs/share_1316500/donchaoyang/data/ft_local/unbalanced_train_segments/'+'unbalanced_train_segments_part'+cnt
-        print(len(audio_paths))
         audio_paths.extend(glob(P.join(input_dir, "*.wav")))
     audio_paths.sort()
-    print(len(audio_paths))
-    # print(audio_paths[:100])
-    # assert 1==2
-    with Pool(args.num_worker) as p:
-        p.map(partial(
-            get_spectrogram, save_dir=output_dir, length=length, folder_name=Path(output_dir).name
-        ), audio_paths)
+    # with Pool(args.num_worker) as p:
+    #     p.map(partial(
+    #         get_spectrogram, save_dir=output_dir, length=length, folder_name=Path(output_dir).name
+    #     ), audio_paths)
+    
+    audio_path = './test.wav'
+    get_spectrogram(audio_path=audio_path, save_dir='./', length=length, folder_name=Path(output_dir).name)
 
 
 

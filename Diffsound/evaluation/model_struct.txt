@@ -368,7 +368,7 @@ Model DALLE(
         (resblocks): Sequential(
           (0): ResidualAttentionBlock(
             (attn): MultiheadAttention(
-              (out_proj): _LinearWithBias(in_features=512, out_features=512, bias=True)
+              (out_proj): NonDynamicallyQuantizableLinear(in_features=512, out_features=512, bias=True)
             )
             (ln_1): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
             (mlp): Sequential(
@@ -380,7 +380,7 @@ Model DALLE(
           )
           (1): ResidualAttentionBlock(
             (attn): MultiheadAttention(
-              (out_proj): _LinearWithBias(in_features=512, out_features=512, bias=True)
+              (out_proj): NonDynamicallyQuantizableLinear(in_features=512, out_features=512, bias=True)
             )
             (ln_1): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
             (mlp): Sequential(
@@ -392,7 +392,7 @@ Model DALLE(
           )
           (2): ResidualAttentionBlock(
             (attn): MultiheadAttention(
-              (out_proj): _LinearWithBias(in_features=512, out_features=512, bias=True)
+              (out_proj): NonDynamicallyQuantizableLinear(in_features=512, out_features=512, bias=True)
             )
             (ln_1): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
             (mlp): Sequential(
@@ -404,7 +404,7 @@ Model DALLE(
           )
           (3): ResidualAttentionBlock(
             (attn): MultiheadAttention(
-              (out_proj): _LinearWithBias(in_features=512, out_features=512, bias=True)
+              (out_proj): NonDynamicallyQuantizableLinear(in_features=512, out_features=512, bias=True)
             )
             (ln_1): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
             (mlp): Sequential(
@@ -416,7 +416,7 @@ Model DALLE(
           )
           (4): ResidualAttentionBlock(
             (attn): MultiheadAttention(
-              (out_proj): _LinearWithBias(in_features=512, out_features=512, bias=True)
+              (out_proj): NonDynamicallyQuantizableLinear(in_features=512, out_features=512, bias=True)
             )
             (ln_1): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
             (mlp): Sequential(
@@ -428,7 +428,7 @@ Model DALLE(
           )
           (5): ResidualAttentionBlock(
             (attn): MultiheadAttention(
-              (out_proj): _LinearWithBias(in_features=512, out_features=512, bias=True)
+              (out_proj): NonDynamicallyQuantizableLinear(in_features=512, out_features=512, bias=True)
             )
             (ln_1): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
             (mlp): Sequential(
@@ -440,7 +440,7 @@ Model DALLE(
           )
           (6): ResidualAttentionBlock(
             (attn): MultiheadAttention(
-              (out_proj): _LinearWithBias(in_features=512, out_features=512, bias=True)
+              (out_proj): NonDynamicallyQuantizableLinear(in_features=512, out_features=512, bias=True)
             )
             (ln_1): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
             (mlp): Sequential(
@@ -452,7 +452,7 @@ Model DALLE(
           )
           (7): ResidualAttentionBlock(
             (attn): MultiheadAttention(
-              (out_proj): _LinearWithBias(in_features=512, out_features=512, bias=True)
+              (out_proj): NonDynamicallyQuantizableLinear(in_features=512, out_features=512, bias=True)
             )
             (ln_1): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
             (mlp): Sequential(
@@ -464,7 +464,7 @@ Model DALLE(
           )
           (8): ResidualAttentionBlock(
             (attn): MultiheadAttention(
-              (out_proj): _LinearWithBias(in_features=512, out_features=512, bias=True)
+              (out_proj): NonDynamicallyQuantizableLinear(in_features=512, out_features=512, bias=True)
             )
             (ln_1): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
             (mlp): Sequential(
@@ -476,7 +476,7 @@ Model DALLE(
           )
           (9): ResidualAttentionBlock(
             (attn): MultiheadAttention(
-              (out_proj): _LinearWithBias(in_features=512, out_features=512, bias=True)
+              (out_proj): NonDynamicallyQuantizableLinear(in_features=512, out_features=512, bias=True)
             )
             (ln_1): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
             (mlp): Sequential(
@@ -488,7 +488,7 @@ Model DALLE(
           )
           (10): ResidualAttentionBlock(
             (attn): MultiheadAttention(
-              (out_proj): _LinearWithBias(in_features=512, out_features=512, bias=True)
+              (out_proj): NonDynamicallyQuantizableLinear(in_features=512, out_features=512, bias=True)
             )
             (ln_1): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
             (mlp): Sequential(
@@ -500,7 +500,7 @@ Model DALLE(
           )
           (11): ResidualAttentionBlock(
             (attn): MultiheadAttention(
-              (out_proj): _LinearWithBias(in_features=512, out_features=512, bias=True)
+              (out_proj): NonDynamicallyQuantizableLinear(in_features=512, out_features=512, bias=True)
             )
             (ln_1): LayerNorm((512,), eps=1e-05, elementwise_affine=True)
             (mlp): Sequential(

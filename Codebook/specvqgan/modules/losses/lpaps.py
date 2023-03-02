@@ -32,7 +32,7 @@ class LPAPS(nn.Module):
 
     def load_from_pretrained(self, name="lpaps"):
         #ckpt = get_ckpt_path(name, "/apdcephfs/share_1316500/donchaoyang/code3/SpecVQGAN/specvqgan/modules/autoencoder/lpaps")
-        ckpt = '/apdcephfs/share_1316500/donchaoyang/code3/SpecVQGAN/specvqgan/modules/autoencoder/lpaps/lin_vgg.pth'
+        ckpt = '../../diffsound/last.ckpt'
         # m_dict = torch.load(ph, map_location=torch.device("cpu"))
         # print('m_dict ',m_dict.keys())
         # assert 1==2
@@ -52,7 +52,7 @@ class LPAPS(nn.Module):
             raise NotImplementedError
         model = cls()
         #ckpt = get_ckpt_path(name)
-        ckpt = '/apdcephfs/share_1316500/donchaoyang/code3/SpecVQGAN/specvqgan/modules/autoencoder/lpaps/lin_vgg.pth'
+        ckpt = '../../diffsound/last.ckpt'
         model.load_state_dict(torch.load(ckpt, map_location=torch.device("cpu")),strict=False)
         return model
 
@@ -75,7 +75,7 @@ class ScalingLayer(nn.Module):
     def __init__(self):
         super(ScalingLayer, self).__init__()
         # we are gonna use get_ckpt_path to donwload the stats as well
-        stat_path = get_ckpt_path('vggishish_mean_std_melspec_10s_22050hz', '/apdcephfs/share_1316500/donchaoyang/code3/SpecVQGAN/specvqgan/modules/autoencoder/lpaps')
+        stat_path = get_ckpt_path('vggishish_mean_std_melspec_10s_22050hz', '../../diffsound')
         # if for images we normalize on the channel dim, in spectrogram we will norm on frequency dimension
         means, stds = np.loadtxt(stat_path, dtype=np.float32).T
         # the normalization in means and stds are given for [0, 1], but specvqgan expects [-1, 1]:
@@ -142,7 +142,7 @@ class vggishish16(torch.nn.Module):
         conv_layers = [64, 64, 'MP', 128, 128, 'MP', 256, 256, 256, 'MP', 512, 512, 512, 'MP', 512, 512, 512]
         model = VGGishish(conv_layers, use_bn=False, num_classes=num_classes_vggsound)
         if pretrained:
-            ckpt_path = get_ckpt_path('vggishish', "/apdcephfs/share_1316500/donchaoyang/code3/SpecVQGAN/specvqgan/modules/autoencoder/lpaps")
+            ckpt_path = get_ckpt_path('vggishish', "../../diffsound")
             ckpt = torch.load(ckpt_path, map_location=torch.device("cpu"))
             model.load_state_dict(ckpt['model'])
         return model

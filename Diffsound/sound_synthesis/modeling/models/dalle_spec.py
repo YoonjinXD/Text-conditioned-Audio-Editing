@@ -35,7 +35,7 @@ class DALLE(nn.Module):
         ##################################################################
         # content_codec = sound_synthesis.modeling.codecs.spec_codec.vqgan.VQModel
         # condition_codec = sound_synthesis.modeling.codecs.text_codec.tokenize.Tokenize
-        # transformer = sound_synthesis.modeling.transformers.diffusion_transformer.DiffusionTransformer
+        # t = sound_synthesis.modeling.transformers.diffusion_transformer.DiffusionTransformer
         # first_stage_permuter = specvqgan.modules.transformer.permuter.ColumnMajor
         ##################################################################
         self.content_info = content_info
@@ -253,20 +253,6 @@ class DALLE(nn.Module):
         return out
 
     @torch.no_grad()
-    def reconstruct(
-        self,
-        input):
-        if torch.is_tensor(input):
-            input = input.to(self.device)
-        cont = self.content_codec.get_tokens(input)
-        cont_ = {}
-        for k, v in cont.items():
-            v = v.to(self.device) if torch.is_tensor(v) else v
-            cont_['content_' + k] = v
-        rec = self.content_codec.decode(cont_['content_token'])
-        return rec
-
-    @torch.no_grad()
     def sample(
         self,
         batch,
@@ -457,4 +443,23 @@ class DALLE(nn.Module):
         }
         
 
+        return out
+    
+    @torch.no_grad()
+    def reconstruct(
+        self,
+        input):
+        self.eval()
+        
+        input = torch.tensor(input)
+        input = input.to(self.device)
+        
+        # input 사이즈 조정
+        x = input[None, None,...].to(memory_format=torch.contiguous_format)
+        x = x.float()
+        dec, _ = self.content_codec(x)
+        out = {
+            'content': dec
+        }
+        
         return out

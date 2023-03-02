@@ -75,7 +75,7 @@ model:
             keep_seq_len_dim: False
             additional_last_embedding: False
             embed_dim: 512
-            trainable: False
+            trainable: True
         content_emb_config:
           target: sound_synthesis.modeling.embeddings.dalle_mask_image_embedding.DalleMaskImageEmbedding
           params:
@@ -84,3 +84,26 @@ model:
             embed_dim: 1024 # the dim of postion embedding
             trainable: True
             pos_emb_type: embedding
+
+dataloader:
+  data_root: /home/yoonjin/ongoing/Text-to-sound-Synthesis/Data
+  split_json: /home/yoonjin/ongoing/Text-to-sound-Synthesis/Data
+  buffer_size: 4
+  batch_nums: 96
+  chunk_num_per_gpu: 4
+  batch_size: 1 #20
+  num_workers: 12
+  train_datasets: # a list of configures, so we can combine several schedulers
+    - target: sound_synthesis.data.caps_dataset.CapsDataset
+      params:
+        data_root: /home/yoonjin/ongoing/Text-to-sound-Synthesis/Data
+        phase: train
+        mel_num: 80
+        spec_len: 860
+        spec_crop_len: 848
+        random_crop: False
+        im_preprocessor_config:
+          target: sound_synthesis.data.utils.image_preprocessor.DalleTransformerPreprocessor   # ImageNet
+          params:
+            size: 256
+            phase: train

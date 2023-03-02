@@ -68,7 +68,7 @@ class ScalingLayer(nn.Module):
     def __init__(self):
         super(ScalingLayer, self).__init__()
         # we are gonna use get_ckpt_path to donwload the stats as well
-        stat_path = get_ckpt_path('vggishish_mean_std_melspec_10s_22050hz', '/apdcephfs/share_1316500/donchaoyang/code3/SpecVQGAN/specvqgan/modules/autoencoder/lpaps')
+        stat_path = get_ckpt_path('vggishish_mean_std_melspec_10s_22050hz', './')
         # if for images we normalize on the channel dim, in spectrogram we will norm on frequency dimension
         means, stds = np.loadtxt(stat_path, dtype=np.float32).T
         # the normalization in means and stds are given for [0, 1], but specvqgan expects [-1, 1]:

@@ -82,8 +82,8 @@ class VQModel(pl.LightningModule):
         return x.float()
 
     def get_tokens(self,spec):
-        quant, emb_loss, info = sefl.encode(spec)
-        
+        quant, emb_loss, info = self.encode(spec)
+        return quant, emb_loss, info
 
     def training_step(self, batch, batch_idx, optimizer_idx):
         x = self.get_input(batch, self.image_key)

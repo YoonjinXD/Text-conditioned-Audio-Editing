@@ -9,6 +9,7 @@ import soundfile
 import yaml
 sys.path.insert(0, '.')  # nopep8
 #sys.path.insert(0,'/apdcephfs/share_1316500/donchaoyang/code3/SpecVQGAN')
+sys.path.append('/home/yoonjin/ongoing/Text-to-sound-Synthesis/Codebook') 
 from pathlib import Path
 from vocoder.modules import Generator
 import torch
@@ -293,12 +294,72 @@ def sample(gpu_id, cfg, samples_split_dirs, is_ddp):
                 # print('one specs time ',time.time()-st_time)
                 # assert 1==2
                 save_specs(cfg, specs, samples_split_dirs, model, batch, split, sample_id, vocoder)
+                
+def recon_sample(gpu_id, cfg, sample_path):
+    device = torch.device(f'cuda:{gpu_id}')
+    torch.cuda.set_device(device)
+    
+    # find the checkpoint path e.g. checkpoints have names `epoch_000012.ckpt`
+    if (Path(cfg.sampler.model_logdir) / 'checkpoints/last.ckpt').exists():
+        ckpt_model = Path(cfg.sampler.model_logdir) / 'checkpoints/last.ckpt'
+    else:
+        ckpt_model = sorted(Path(cfg.sampler.model_logdir).glob('checkpoints/*.ckpt'))[-1]
+    print(f'Going to use the checkpoint from {ckpt_model}')
+    
+    # loading the vocoder
+    ckpt_vocoder = '/home/yoonjin/ongoing/Text-to-sound-Synthesis/Codebook/vocoder/logs/audioset'
+    print('ckpt_vocoder ',ckpt_vocoder)
+    if ckpt_vocoder:
+        vocoder = load_vocoder(ckpt_vocoder, eval_mode=True)['model'].to('cuda')
+
+    # now load the specified checkpoint
+    if ckpt_model:
+        pl_sd = torch.load(ckpt_model, map_location='cpu')
+    else:
+        pl_sd = {'state_dict': None}
+
+    if 'ckpt_path' in cfg.model.params:
+        cfg.model.params.ckpt_path = None
+    if 'downsample_cond_size' in cfg.model.params:
+        cfg.model.params.downsample_cond_size = -1
+        cfg.model.params['downsample_cond_factor'] = 0.5
+    try:
+        if 'ckpt_path' in cfg.model.params.first_stage_config.params:
+            cfg.model.params.first_stage_config.params.ckpt_path = None
+        if 'ckpt_path' in cfg.model.params.cond_stage_config.params:
+            cfg.model.params.cond_stage_config.params.ckpt_path = None
+    except Exception:
+        pass
+    model = instantiate_from_config(cfg.model) # init model
+    if pl_sd['state_dict'] is not None:
+        missing, unexpected = model.load_state_dict(pl_sd['state_dict'], strict=False)
+        print(f'Missing fields: {missing}')
+        print(f'Unexpected fields: {unexpected}')
+    model.to(device)
+    model.eval()
+
+    # defining data loaders in a dict
+    sampler = None
+    num_workers = cfg.sampler.num_workers
+    dataloader = DataLoader('~/ongoing/Text-to-sound-Synthesis/Data/caps_full', cfg.sampler.batch_size, sampler=sampler, num_workers=num_workers,
+                                     pin_memory=True, drop_last=False)
+        
+    if isinstance(cfg.sampler.samples_per_video, int) and cfg.sampler.samples_per_video > 0:
+        samples_per_video = cfg.sampler.samples_per_video # 每个文本生成多少个音频
+        print(f'USING {samples_per_video} samples per text') 
+    else:
+        samples_per_video = 1
+    for batch in tqdm(dataloader):
+        for sample_id in range(samples_per_video):
+            specs = sample_spectrogram(cfg, model, batch)
+            print(specs)
+    
 
 def main():
     torch.manual_seed(0)
     local_rank = os.environ.get('LOCAL_RANK') # if single GPU, local_rank is None 
     cfg = load_and_save_config()
-    samples_split_dirs = make_folder_for_samples(cfg)
+    # samples_split_dirs = make_folder_for_samples(cfg)
     if local_rank is not None:
         is_ddp = True
         local_rank = int(local_rank)
@@ -313,7 +374,8 @@ def main():
         print(OmegaConf.to_yaml(cfg))
         local_rank = 0
 
-    sample(local_rank, cfg, samples_split_dirs, is_ddp)
+    # sample(local_rank, cfg, samples_split_dirs, is_ddp)
+    recon_sample(local_rank, cfg, './logs/caps_recon/results')
 
 
 if __name__ == '__main__':

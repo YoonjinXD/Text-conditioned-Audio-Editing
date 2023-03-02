@@ -34,7 +34,7 @@ def get_args():
                         help='directory to save the results')    
     parser.add_argument('--log_frequency', type=int, default=100, 
                         help='print frequency (default: 100)')
-    parser.add_argument('--load_path', type=str, default='../../diffsound/audioset_pretrain_diffsound.pth',
+    parser.add_argument('--load_path', type=str, default='../../diffsound/diffsound_audioset_audiocaps.pth',
                         help='path to model that need to be loaded, '
                              'used for loading pretrained model') # 什么时候用了这个?
     parser.add_argument('--resume_name', type=str, default=None,
@@ -150,7 +150,7 @@ def main_worker(local_rank, args):
     logger = Logger(args)
     logger.save_config(config)
     
-        # rewrite data path
+    # EDIT: rewrite data path
     data_path = os.path.join(config['dataloader']['data_root'], (args.name).replace(' ', '_'))
     config['dataloader']['data_root'] = data_path
     config['dataloader']['train_datasets'][0]['data_root'] = data_path

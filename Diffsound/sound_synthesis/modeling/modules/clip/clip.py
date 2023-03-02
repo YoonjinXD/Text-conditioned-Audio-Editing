@@ -26,8 +26,8 @@ def _download(url: str, root: str = os.path.expanduser("~/.cache/image-synthesis
     filename = os.path.basename(url)
 
     expected_sha256 = url.split("/")[-2]
-    # download_target = os.path.join(root, filename)
-    download_target = "/apdcephfs/share_1316500/donchaoyang/code3/VQ-Diffusion/OUTPUT/pretrained_model/ViT-B-32.pt"
+    download_target = os.path.join(root, filename)
+    # download_target = "/apdcephfs/share_1316500/donchaoyang/code3/VQ-Diffusion/OUTPUT/pretrained_model/ViT-B-32.pt"
 
     if os.path.exists(download_target) and not os.path.isfile(download_target):
         raise RuntimeError(f"{download_target} exists and is not a regular file")
@@ -92,8 +92,8 @@ def load(name: str, device: Union[str, torch.device] = "cuda" if torch.cuda.is_a
         A torchvision transform that converts a PIL image into a tensor that the returned model can take as its input
     """
     if name in _MODELS:
-        # model_path = _download(_MODELS[name])
-        model_path = "/apdcephfs/share_1316500/donchaoyang/code3/VQ-Diffusion/OUTPUT/pretrained_model/ViT-B-32.pt"
+        model_path = _download(_MODELS[name])
+        # model_path = "/apdcephfs/share_1316500/donchaoyang/code3/VQ-Diffusion/OUTPUT/pretrained_model/ViT-B-32.pt"
     elif os.path.isfile(name):
         model_path = name
     else:
